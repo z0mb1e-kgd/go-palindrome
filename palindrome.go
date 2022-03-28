@@ -3,14 +3,12 @@ package main
 import (
 	"fmt"
 	"log"
+	"math"
 	"regexp"
 	"strconv"
-	"sync"
 )
 
 func main() {
-	var wg sync.WaitGroup
-	var mx sync.Mutex
 	var input string
 
 	n, err := fmt.Scanf("%s", &input)
@@ -23,32 +21,26 @@ func main() {
 	if !checkInput(input) {
 		log.Fatalln("Input is not correct.")
 	}
-
-	intInput, err := strconv.Atoi(input)
+	intInput, err := strconv.ParseUint(input, 10, 64)
 	if err != nil {
 		log.Fatalln("Conversion to integer failed.")
 	}
 
-	palindrome := 0
+	palindrome := make(chan uint64, 1)
+	palindrome <- 0
 
-	for next := intInput + 1; palindrome == 0; next++ {
-		wg.Add(1)
-		go func(i int) {
-			defer wg.Done()
+	for next := intInput + 1; <-palindrome == 0 && next <= math.MaxUint64; next++ {
+		go func(i uint64) {
 			if isPalindrome(i) {
-				mx.Lock()
-				defer mx.Unlock()
-				palindrome = i
+				palindrome <- i
 			}
 		}(next)
 	}
 
-	wg.Wait()
-
-	if palindrome <= intInput {
+	if <-palindrome <= intInput {
 		log.Fatalln("Failed to count difference.")
 	}
-	fmt.Println(palindrome - intInput)
+	fmt.Println(<-palindrome - intInput)
 
 }
 
@@ -67,8 +59,8 @@ func reverseString(str string) string {
 
 func isPalindrome(value interface{}) bool {
 	var str string
-	if v, ok := value.(int); ok {
-		str = strconv.Itoa(v)
+	if v, ok := value.(uint64); ok {
+		str = strconv.FormatUint(v, 10)
 	} else if v, ok := value.(string); ok {
 		str = v
 	} else {
